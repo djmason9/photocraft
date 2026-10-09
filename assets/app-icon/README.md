@@ -28,8 +28,9 @@ craftrules at `assets/app-icons/photocraft/source.png`. License: see `LICENSE.tx
 
 ## Files
 
-- `photocraft.svg`: canonical master (traced at 2048 px).
-- `photocraft-small.svg`: lighter trace (traced at 1024 px); also the hicolor scalable icon.
+- `photocraft.svg`: earlier master (traced at 2048 px); no longer rendered.
+- `photocraft-small.svg`: the icon master. Every render below comes from it, and it is copied as the
+  hicolor scalable icon.
 - `photocraft-1024.png`: 1024 px render on the macOS grid.
 - `photocraft.icns`: macOS bundle icon (`CFBundleIconFile`).
 - `photocraft.ico`: Windows icon, 16–256 px, embedded in the `.exe` by `apps/photocraft/build.rs`.
@@ -43,5 +44,5 @@ details and tests the `.ico` sizes and the WiX icon references.
 
 ## Regenerate
 
-Replace `photocraft.svg` (and `photocraft-small.svg`), then run `packaging/icons.sh`. It needs
+Replace `photocraft-small.svg`, then run `packaging/icons.sh`. It needs
 `resvg`, plus `iconutil` on macOS; the `.ico` is packed by `cargo xtask ico`.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Regenerate every app icon from assets/app-icon/photocraft.svg (the canonical master).
+# Regenerate every app icon from assets/app-icon/photocraft-small.svg (the icon master).
 #
 # Needs: resvg (brew install resvg / cargo install resvg). On macOS, iconutil also writes the
 # .icns. The outputs are committed, so packaging never needs these tools.
@@ -8,7 +8,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIR="$ROOT/assets/app-icon"
-SVG="$DIR/photocraft.svg"
+SVG="$DIR/photocraft-small.svg"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -33,7 +33,7 @@ for s in 16 24 32 48 64 128 256 512; do
   render "$TIGHT" "$s" "$DIR/hicolor/${s}x${s}/apps/ai.storyteller.photocraft.png"
 done
 mkdir -p "$DIR/hicolor/scalable/apps"
-# The lighter trace (photocraft-small.svg) keeps the scalable theme icon cheap to render.
+# The scalable theme icon is the master itself.
 cp "$DIR/photocraft-small.svg" "$DIR/hicolor/scalable/apps/ai.storyteller.photocraft.svg"
 
 # Windows .ico.
