@@ -2743,9 +2743,13 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
                 crate::crop_ui::draw_turn_cursor(&ctx, p, toward);
             }
         } else if app.drag.as_ref().is_some_and(|d| d.sel_move.is_some())
-            || response.hover_pos().is_some_and(|p| app.drag.is_none() && selection_drag_kind(app, tool, xf.to_doc(p), ui.input(|i| i.modifiers)).is_some())
+            || response.hover_pos().is_some_and(|p| {
+                let (d, m) = (xf.to_doc(p), ui.input(|i| i.modifiers));
+                app.drag.is_none() && (selection_drag_kind(app, tool, d, m).is_some() || command_moves_layer(app, tool, d, m))
+            })
         {
-            // Over the ants with a marquee or lasso: a press drags the selection.
+            // Over the ants with a marquee or lasso: a press drags the selection; ⌘ with a
+            // selection tool is the Move tool.
             ui.ctx().set_cursor_icon(egui::CursorIcon::Move);
         } else if let Some(p) = response.hover_pos() {
             let alt = ui.input(|i| i.modifiers.alt);
@@ -3767,13 +3771,14 @@ fn inside_selection(app: &PhotocraftApp, p: [f64; 2]) -> bool {
 
 /// Does a press with `tool` at `p` drag the selection rather than draw a new one? `Some(true)`
 /// moves the floating piece (⌘ cuts one first, ⌘⌥ copies; a floating piece moves with a plain
-/// drag; the Polygonal Lasso and Magic Wand need ⌘, as a plain press there places or samples),
+/// drag; the Polygonal Lasso, Magic Wand, Object Selection and Quick Selection need ⌘, as a plain
+/// press there places, samples or draws),
 /// `Some(false)` just the outline (no ⇧ / ⌥ and the options bar on New Selection, so a combining
 /// drag still draws).
 pub fn selection_drag_kind(app: &PhotocraftApp, tool: Tool, p: [f64; 2], mods: egui::Modifiers) -> Option<bool> {
-    // Click-driven selection tools (a press places a point or samples): only ⌘ drags the
+    // Click-driven selection tools (a press places a point, samples or draws): only ⌘ drags the
     // selection, and not while a polygon is being drawn.
-    let clicky = matches!(tool, Tool::PolygonLasso | Tool::MagicWand);
+    let clicky = matches!(tool, Tool::PolygonLasso | Tool::MagicWand | Tool::ObjectSelection | Tool::QuickSelection);
     if !(clicky || matches!(tool, Tool::RectMarquee | Tool::EllipseMarquee | Tool::Lasso)) || (clicky && !app.ui.polygon.is_empty()) {
         return None;
     }
@@ -3796,7 +3801,10 @@ pub fn selection_drag_kind(app: &PhotocraftApp, tool: Tool, p: [f64; 2], mods: e
 /// ⌥), as the Move tool would? Outside the selection or without one; inside it, ⌘ drags the
 /// selected pixels instead (`selection_drag_kind`).
 fn command_moves_layer(app: &PhotocraftApp, tool: Tool, p: [f64; 2], mods: egui::Modifiers) -> bool {
-    let selection_tool = matches!(tool, Tool::RectMarquee | Tool::EllipseMarquee | Tool::Lasso | Tool::PolygonLasso | Tool::MagicWand);
+    let selection_tool = matches!(
+        tool,
+        Tool::RectMarquee | Tool::EllipseMarquee | Tool::Lasso | Tool::PolygonLasso | Tool::MagicWand | Tool::ObjectSelection | Tool::QuickSelection
+    );
     let floating = app.session.active().is_some_and(|st| photocraft_engine::float_cmds::floating(st).is_some());
     selection_tool && mods.command && !mods.shift && !floating && app.ui.polygon.is_empty() && !inside_selection(app, p)
 }

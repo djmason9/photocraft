@@ -408,3 +408,37 @@ fn alt_with_nothing_selected_draws_a_new_selection() {
     let after = h.state().session.active().unwrap().doc.selection.as_ref().map(|s| s.content_bounds());
     assert!(after.is_none_or(|r| r.is_empty() || r != before), "⌥ subtracted: {before:?} -> {after:?}");
 }
+
+/// ⌘ turns the Object Selection and Quick Selection tools into the Move tool, as it does the
+/// marquees and lassos: a ⌘-drag moves the layer, a ⌘-drag inside the ants floats the selected
+/// pixels, and the tool comes back once ⌘ is released.
+#[test]
+fn cmd_with_object_and_quick_selection_is_the_move_tool() {
+    for tool in [Tool::ObjectSelection, Tool::QuickSelection] {
+        let (mut app, layer) = painted();
+        app.ui.tool = tool;
+        let alpha = |app: &PhotocraftApp, x, y| app.session.active().unwrap().doc.layer(layer).unwrap().surface().unwrap().rgba(x, y)[3];
+        app.run("select.deselect", json!({})).unwrap();
+        drag(&mut app, [50.0, 40.0], [60.0, 40.0], Modifiers::COMMAND);
+        assert!(alpha(&app, 12, 20) == 0.0 && alpha(&app, 35, 20) == 1.0, "{tool:?}: the layer moved 10 px right");
+        assert_eq!(app.ui.tool, tool, "the tool is kept");
+        app.run("select.rect", json!({"x": 20, "y": 10, "width": 20, "height": 20})).unwrap();
+        drag(&mut app, [30.0, 20.0], [30.0, 35.0], Modifiers::COMMAND);
+        assert_eq!(photocraft_engine::float_cmds::floating(app.session.active().unwrap()).map(|f| f.offset), Some((0, 15)), "{tool:?}: ⌘ inside floats the pixels");
+    }
+}
+
+/// Holding ⌘ over the canvas with the Object Selection tool shows the Move cursor; releasing it
+/// gives the tool's own cursor back.
+#[test]
+fn holding_cmd_with_object_selection_shows_the_move_cursor() {
+    let mut h = harness(Tool::ObjectSelection);
+    move_to(&mut h, 150.0, 120.0);
+    assert_ne!(h.output().platform_output.cursor_icon, egui::CursorIcon::Move);
+    mods(&mut h, Modifiers::COMMAND);
+    move_to(&mut h, 152.0, 120.0);
+    assert_eq!(h.output().platform_output.cursor_icon, egui::CursorIcon::Move);
+    mods(&mut h, Modifiers::NONE);
+    move_to(&mut h, 150.0, 120.0);
+    assert_ne!(h.output().platform_output.cursor_icon, egui::CursorIcon::Move);
+}
