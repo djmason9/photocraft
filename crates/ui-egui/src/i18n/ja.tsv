@@ -3302,3 +3302,6 @@ fontWeight	Italic	斜体
 	Color to Alpha…	カラーを透明に…
 	Transparency Threshold	透明のしきい値
 	Opacity Threshold	不透明度のしきい値
+	YOUR RECENT ITEMS ({n})	最近使用した項目 ({n})
+	Start a new {name} document: {size}	新規 {name} ドキュメントを作成: {size}
+	Recent new documents	最近作成した新規ドキュメント

@@ -24,8 +24,11 @@ fn create(app: &mut PhotocraftApp, fields: Value) {
 #[test]
 fn new_document_starts_from_the_last_settings() {
     let mut app = app();
-    // The first time: the defaults (1920 × 1080, 72 ppi).
-    assert_eq!(app.new_document_fields(), crate::state::UiState::new_document_fields());
+    // The first time: the defaults (1920 × 1080, 72 ppi), plus the toolbar's background colour
+    // for the Background Contents swatch.
+    let mut f = app.new_document_fields();
+    assert!(f.remove("__bgColor").is_some());
+    assert_eq!(f, crate::state::UiState::new_document_fields());
     create(
         &mut app,
         json!({"name": "Poster", "width": 640, "height": 480, "resolution": 300.0, "mode": "cmyk", "depth": 16, "background": "transparent", "__unit": "in", "__resUnit": "ppi"}),

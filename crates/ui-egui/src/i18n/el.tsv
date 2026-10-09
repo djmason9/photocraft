@@ -3388,3 +3388,6 @@ fontWeight	Thin	Πολύ λεπτά
 	Color to Alpha…	Χρώμα σε άλφα…
 	Transparency Threshold	Κατώφλι διαφάνειας
 	Opacity Threshold	Κατώφλι αδιαφάνειας
+	YOUR RECENT ITEMS ({n})	ΤΑ ΠΡΟΣΦΑΤΑ ΣΑΣ ΣΤΟΙΧΕΙΑ ({n})
+	Start a new {name} document: {size}	Δημιουργία νέου εγγράφου {name}: {size}
+	Recent new documents	Πρόσφατα νέα έγγραφα

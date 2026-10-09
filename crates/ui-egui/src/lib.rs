@@ -1065,6 +1065,12 @@ impl PhotocraftApp {
 }
 
 impl eframe::App for PhotocraftApp {
+    /// Save preferences changed since the last frame's tick (the panel layout, the toolbar's
+    /// columns…), so quitting right after a change keeps it.
+    fn on_exit(&mut self) {
+        prefs_ui::flush(self);
+    }
+
     fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         i18n::set_current(i18n::Lang::from_pref(&self.session.prefs().interface.language));
         if !self.styled {
@@ -1596,9 +1602,10 @@ impl PhotocraftApp {
     }
 
     /// File › New's fields: the defaults, then the settings of the last document made with the
-    /// dialog (Photoshop starts from them, #1810), then the Clipboard preset (the clipboard image's
-    /// size, selected) when the clipboard holds an image. Opening the dialog is an explicit
-    /// request, so the OS clipboard is read here, as for a paste.
+    /// dialog (Photoshop starts from them, #1810), the recent sizes and the background colour, then
+    /// the Clipboard preset (the clipboard image's size, selected) when the clipboard holds an
+    /// image. Opening the dialog is an explicit request, so the OS clipboard is read here, as for a
+    /// paste.
     pub(crate) fn new_document_fields(&mut self) -> serde_json::Map<String, serde_json::Value> {
         let mut f = crate::state::UiState::new_document_fields();
         if let Some(serde_json::Value::Object(saved)) = self.session.prefs().dialogs.get(NEW_DOCUMENT) {
@@ -1608,6 +1615,8 @@ impl PhotocraftApp {
                 }
             }
         }
+        crate::new_doc_ui::set_recent(&mut f, &self.session.prefs().file_handling.recent_new_documents);
+        crate::new_doc_ui::set_background_color(&mut f, self.session.tools.background);
         self.import_os_clipboard();
         if let Some(c) = self.session.clipboard.as_ref().filter(|c| !c.bounds.is_empty()) {
             crate::new_doc_ui::set_clipboard(&mut f, c.bounds.width(), c.bounds.height());

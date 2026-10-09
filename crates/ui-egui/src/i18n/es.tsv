@@ -2345,3 +2345,6 @@ fontWeight	Italic	Cursiva
 	Color to Alpha…	Color a alfa…
 	Transparency Threshold	Umbral de transparencia
 	Opacity Threshold	Umbral de opacidad
+	YOUR RECENT ITEMS ({n})	SUS ELEMENTOS RECIENTES ({n})
+	Start a new {name} document: {size}	Crear un documento {name} nuevo: {size}
+	Recent new documents	Documentos nuevos recientes

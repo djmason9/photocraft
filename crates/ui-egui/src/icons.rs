@@ -73,7 +73,7 @@ pub fn tool_icon(t: Tool) -> &'static str {
         Tool::Note => "message-square",
         Tool::Count => "circle-dot",
         Tool::Lasso => "lasso",
-        Tool::PolygonLasso => "pentagon",
+        Tool::PolygonLasso => "poly-lasso",
         Tool::MagneticLasso => "lasso-magnetic",
         Tool::MagicWand => "wand-sparkles",
         Tool::Crop => "crop",
@@ -141,6 +141,12 @@ pub fn button_with_icon_size(ui: &mut egui::Ui, name: &str, box_size: f32, icon_
     let tint = button_chrome(ui, rect, selected, resp.hovered());
     paint(ui, rect, name, icon_size, tint);
     if tooltip.is_empty() { resp } else { resp.on_hover_text(tl!(tooltip)) }
+}
+
+/// [`button`] with the icon drawn at `icon_fraction` of the box (the toolbar's fill more of it,
+/// as in Photoshop).
+pub fn button_with_icon(ui: &mut egui::Ui, name: &str, box_size: f32, icon_fraction: f32, selected: bool, tooltip: &str) -> Response {
+    button_with_icon_size(ui, name, box_size, (box_size * icon_fraction).round(), selected, tooltip)
 }
 
 /// Rail toggle: "on" gets a quiet filled background and full-strength icon (no accent).

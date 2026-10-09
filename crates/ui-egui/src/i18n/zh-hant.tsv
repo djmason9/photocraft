@@ -2254,3 +2254,6 @@ fontWeight	Italic	斜體
 	Color to Alpha…	顏色轉為 Alpha…
 	Transparency Threshold	透明度臨界值
 	Opacity Threshold	不透明度臨界值
+	YOUR RECENT ITEMS ({n})	最近使用的項目 ({n})
+	Start a new {name} document: {size}	新增{name}文件：{size}
+	Recent new documents	最近新增的文件

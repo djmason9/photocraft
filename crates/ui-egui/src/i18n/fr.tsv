@@ -2698,3 +2698,6 @@ fontWeight	Italic	Italique
 	Color to Alpha…	Couleur vers alpha…
 	Transparency Threshold	Seuil de transparence
 	Opacity Threshold	Seuil d'opacité
+	YOUR RECENT ITEMS ({n})	VOS ÉLÉMENTS RÉCENTS ({n})
+	Start a new {name} document: {size}	Créer un document {name} : {size}
+	Recent new documents	Nouveaux documents récents

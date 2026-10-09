@@ -2315,3 +2315,6 @@ fontWeight	Italic	Kursiv
 	Color to Alpha…	Farbe zu Alpha…
 	Transparency Threshold	Transparenz-Schwellenwert
 	Opacity Threshold	Deckkraft-Schwellenwert
+	YOUR RECENT ITEMS ({n})	IHRE LETZTEN ELEMENTE ({n})
+	Start a new {name} document: {size}	Neues Dokument „{name}“ erstellen: {size}
+	Recent new documents	Zuletzt erstellte Dokumente

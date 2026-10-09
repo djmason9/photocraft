@@ -1,6 +1,6 @@
 //! Chrome around the canvas: title bar, options bar, toolbar, status bar, dock cards, Properties.
 
-use egui::{Align2, Color32, CornerRadius, Pos2, Rect, RichText, Sense, Stroke, StrokeKind, pos2, vec2};
+use egui::{Align2, Color32, CornerRadius, Pos2, Rect, RichText, Sense, Stroke, StrokeKind, Vec2, pos2, vec2};
 use photocraft_color::BlendMode;
 use photocraft_doc::{Layer, LayerContent, LayerId};
 use serde_json::{Value, json};
@@ -42,13 +42,21 @@ const TOOL_SECTIONS: &[&[&[Tool]]] = &[
     &[&[Tool::Hand, Tool::RotateView], &[Tool::Zoom]],
 ];
 
-/// The tool a slot shows: the current tool if it belongs to the slot, else the last one used.
-fn slot_tool(ui: &egui::Ui, current: Tool, slot: &[Tool], key: egui::Id) -> Tool {
+/// The tool a slot shows: the current tool if it belongs to the slot, else the last one used
+/// (`slots`, kept by the slot's first tool in [`TOOL_SECTIONS`] and saved with the panel layout).
+fn slot_tool(slots: &mut std::collections::BTreeMap<String, String>, current: Tool, slot: &[Tool], slot_index: usize) -> Tool {
+    let Some(&first) = TOOL_SECTIONS.iter().flat_map(|section| section.iter()).nth(slot_index).and_then(|s| s.first()) else {
+        return slot.first().copied().unwrap_or(current);
+    };
+    let key = format!("{first:?}");
     if slot.contains(&current) {
-        ui.data_mut(|d| d.insert_temp(key, current));
+        let name = format!("{current:?}");
+        if slots.get(&key) != Some(&name) {
+            slots.insert(key, name);
+        }
         return current;
     }
-    ui.data(|d| d.get_temp::<Tool>(key)).filter(|t| slot.contains(t)).unwrap_or(slot[0])
+    slots.get(&key).and_then(|n| Tool::from_name(n)).filter(|t| slot.contains(t)).or_else(|| slot.first().copied()).unwrap_or(current)
 }
 
 /// [`TOOL_SECTIONS`] without the tools hidden in Edit › Toolbar (`hidden` holds tool names: the
@@ -76,29 +84,38 @@ fn visible_sections(hidden: &[String]) -> Vec<Vec<(usize, Vec<Tool>)>> {
     sections
 }
 
+/// Toolbar icons fill about two thirds of their button, as in Photoshop.
+const TOOL_ICON: f32 = 0.60;
+
 pub fn toolbar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     let t = Tokens::get(ui.ctx());
     let (w1, bx, m) = if t.pro { (40.0, 30.0, 5i8) } else { (50.0, 36.0, 7i8) };
     let sections = visible_sections(&app.session.prefs().toolbar.hidden);
-    // Two columns when the header chevron asks for them, or when one column doesn't fit.
+    // Two columns when the header chevron asks for them, or when one column doesn't fit and the
+    // chevron hasn't chosen one column (then the tools scroll).
     let slots: usize = sections.iter().map(Vec::len).sum();
-    let double = app.ui.panels.toolbar_double || toolbar_needs_double(slots, sections.len(), bx, t.pro, ui.available_rect_before_wrap().height());
+    let overflow = toolbar_needs_double(slots, sections.len(), bx, t.pro, ui.available_rect_before_wrap().height());
+    let double = app.ui.panels.toolbar_double || (overflow && !app.ui.panels.toolbar_single);
     let w = if double { w1 + bx + 2.0 } else { w1 };
-    egui::Panel::left("toolbar").resizable(false).exact_size(w).frame(egui::Frame::NONE.fill(t.chrome).inner_margin(egui::Margin::symmetric(m, 8))).show(
-        ui,
-        |ui| {
-            if t.pro {
-                let r = ui.max_rect();
-                ui.painter().line_segment([r.right_top() + vec2(m as f32, -8.0), r.right_bottom() + vec2(m as f32, 8.0)], Stroke::new(1.0, t.separator));
-                // Photoshop's toolbar header chevrons switch between one and two columns.
-                let (cr, resp) = ui.allocate_exact_size(vec2(bx, 14.0), Sense::click());
-                icons::paint(ui, cr, if double { "chevrons-left" } else { "chevrons-right" }, 11.0, if resp.hovered() { t.text } else { t.text_faint });
-                resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tl!("Toolbar")));
-                if resp.clicked() {
-                    app.ui.panels.toolbar_double = !app.ui.panels.toolbar_double;
-                }
-                ui.add_space(4.0);
+    // Pro's single column is 10 px wider than its tool buttons so the 36 px colour chips and their
+    // outlines fit with room to spare; the extra left margin keeps the buttons centred.
+    let (w, ml, mr) = if t.pro && !double { (w + 10.0, m + 5, m - 5) } else { (w, m, m) };
+    let margin = egui::Margin { left: ml, right: mr, top: 8, bottom: 8 };
+    egui::Panel::left("toolbar").resizable(false).exact_size(w).frame(egui::Frame::NONE.fill(t.chrome).inner_margin(margin)).show(ui, |ui| {
+        if t.pro {
+            let r = ui.max_rect();
+            ui.painter().line_segment([r.right_top() + vec2(mr as f32, -8.0), r.right_bottom() + vec2(mr as f32, 8.0)], Stroke::new(1.0, t.separator));
+            // Photoshop's toolbar header chevrons switch between one and two columns.
+            let (cr, resp) = ui.allocate_exact_size(vec2(bx, 14.0), Sense::click());
+            icons::paint(ui, cr, if double { "chevrons-left" } else { "chevrons-right" }, 11.0, if resp.hovered() { t.text } else { t.text_faint });
+            resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tl!("Toolbar")));
+            if resp.clicked() {
+                app.ui.panels.toolbar_double = !double;
+                app.ui.panels.toolbar_single = double;
             }
+            ui.add_space(4.0);
+        }
+        let body = |ui: &mut egui::Ui| {
             // Subtle violet wash at the bottom of the toolbar.
             let full = ui.max_rect();
             if !t.bevel && !t.pro && t.dark() {
@@ -135,10 +152,10 @@ pub fn toolbar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                     ui.horizontal(|ui| {
                         for (slot_index, slot) in row.iter() {
                             let key = egui::Id::new(("tool-slot", *slot_index));
-                            let tool = slot_tool(ui, app.ui.tool, slot, key);
+                            let tool = slot_tool(&mut app.ui.tool_slots, app.ui.tool, slot, *slot_index);
                             let sel = slot.contains(&app.ui.tool);
                             let tip = if tool.key() == '\0' { tl!(tool.label()).to_string() } else { format!("{}  ({})", tl!(tool.label()), tool.key()) };
-                            let resp = icons::button(ui, icons::tool_icon(tool), bx, sel, &tip);
+                            let resp = icons::button_with_icon(ui, icons::tool_icon(tool), bx, TOOL_ICON, sel, &tip);
                             if slot.len() > 1 {
                                 let r = resp.rect;
                                 let tri = vec![r.right_bottom() + vec2(-2.0, -2.0), r.right_bottom() + vec2(-6.0, -2.0), r.right_bottom() + vec2(-2.0, -6.0)];
@@ -241,26 +258,35 @@ pub fn toolbar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                 }
             }
             let ctx = ui.ctx().clone();
-            if t.pro && icons::button(ui, "ellipsis", bx, false, tl!("Edit Toolbar…")).clicked() {
-                let _ = crate::menus::invoke(app, &ctx, "edit.toolbar", json!({}));
+            if t.pro {
+                // Edit Toolbar: three solid dots, bolder than the outline icon, as in Photoshop.
+                let (r, resp) = ui.allocate_exact_size(Vec2::splat(bx), Sense::click());
+                let tint = icons::button_chrome(ui, r, false, resp.hovered());
+                for dx in [-6.0, 0.0, 6.0] {
+                    ui.painter().circle_filled(r.center() + vec2(dx, 0.0), 1.9, tint);
+                }
+                if resp.on_hover_text(tl!("Edit Toolbar…")).clicked() {
+                    let _ = crate::menus::invoke(app, &ctx, "edit.toolbar", json!({}));
+                }
             }
-            ui.add_space(if t.pro { 8.0 } else { 14.0 });
-            color_chips(app, ui);
+            // The colour chips sit just under the dots, as in Photoshop.
+            ui.add_space(if t.pro { 3.0 } else { 14.0 });
+            // Centred on the toolbar, not on its content area, which the single column's wider left
+            // margin pushes right.
+            color_chips(app, ui, f32::from(mr - ml) / 2.0);
             if t.pro {
                 ui.add_space(8.0);
                 let quick_mask = app.session.active().is_some_and(|s| s.doc.quick_mask.is_some());
-                if icons::button(
-                    ui,
-                    "square-dashed",
-                    bx,
-                    quick_mask,
-                    if quick_mask { tl!("Edit in Standard Mode  (Q)") } else { tl!("Edit in Quick Mask Mode  (Q)") },
-                )
-                .clicked()
-                {
+                // Drawn larger than the other buttons' icons, like Photoshop's wide Quick Mask glyph.
+                let (r, qm) = ui.allocate_exact_size(vec2(bx, bx), Sense::click());
+                let tint = icons::button_chrome(ui, r, quick_mask, qm.hovered());
+                icons::paint(ui, r, "quick-mask", (bx * 0.8).round(), tint);
+                let tip = if quick_mask { tl!("Edit in Standard Mode  (Q)") } else { tl!("Edit in Quick Mask Mode  (Q)") };
+                qm.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tip));
+                if qm.on_hover_text(tip).clicked() {
                     let _ = crate::menus::invoke(app, &ctx, "select.editInQuickMaskMode", json!({}));
                 }
-                let sm = icons::button(ui, "app-window", bx, false, tl!("Change Screen Mode  (F)"));
+                let sm = icons::button_with_icon(ui, "app-window", bx, TOOL_ICON, false, tl!("Change Screen Mode  (F)"));
                 if sm.clicked() {
                     let _ = crate::menus::invoke(app, &ctx, "view.screenMode.cycle", json!({}));
                 }
@@ -280,8 +306,13 @@ pub fn toolbar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                     }
                 });
             }
-        },
-    );
+        };
+        if overflow && !double {
+            egui::ScrollArea::vertical().auto_shrink(false).scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden).show(ui, body);
+        } else {
+            body(ui);
+        }
+    });
 }
 
 /// Does the toolbar need two columns? Height of one column (header, tool slots, Edit Toolbar,
@@ -290,9 +321,9 @@ pub fn toolbar_needs_double(slots: usize, sections: usize, bx: f32, pro: bool, a
     let pitch = bx + 3.0;
     let needed = if pro {
         // margins + header + slots + "…" + gap + colour chips + gap + 2 buttons
-        16.0 + 21.0 + (slots + 1) as f32 * pitch + 8.0 + chips_height(true) + 8.0 + 2.0 * pitch
+        16.0 + 21.0 + (slots + 1) as f32 * pitch + 8.0 + CHIPS_GRID + 8.0 + 2.0 * pitch
     } else {
-        16.0 + slots as f32 * pitch + sections.saturating_sub(1) as f32 * 12.0 + 14.0 + chips_height(false)
+        16.0 + slots as f32 * pitch + sections.saturating_sub(1) as f32 * 12.0 + 14.0 + CHIPS_GRID
     };
     needed > avail_h
 }
@@ -301,45 +332,50 @@ fn c32(c: [f32; 4]) -> Color32 {
     Color32::from_rgba_unmultiplied((c[0] * 255.0) as u8, (c[1] * 255.0) as u8, (c[2] * 255.0) as u8, (c[3] * 255.0) as u8)
 }
 
-/// Colour chips: chip size and the background chip's offset (points).
-fn chip_metrics(pro: bool) -> (f32, f32) {
-    if pro { (18.0, 10.0) } else { (21.0, 12.0) }
-}
+/// Size of the colour chips block (a square, before scaling to a narrow toolbar).
+const CHIPS_GRID: f32 = 40.0;
 
-/// Height of the default-colours and swap icons over the chips.
-const CHIP_ICON: f32 = 13.0;
-
-/// Height of the colour chips block.
-fn chips_height(pro: bool) -> f32 {
-    let (chip, step) = chip_metrics(pro);
-    CHIP_ICON + 3.0 + chip + step
-}
-
-/// Photoshop's foreground / background colour chips: the Default Colors (D) and Switch Colors (X)
-/// icons above them, the foreground chip over the background one, all centred in the toolbar
-/// column and kept inside it.
-fn color_chips(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
+/// The colour chips, centred across the toolbar: `dx` moves them from the content area's centre
+/// to the toolbar's.
+fn color_chips(app: &mut PhotocraftApp, ui: &mut egui::Ui, dx: f32) {
     let t = Tokens::get(ui.ctx());
-    let (chip, step) = chip_metrics(t.pro);
-    let group = chip + step;
-    let w = ui.available_width().max(group);
-    let (rect, _) = ui.allocate_exact_size(vec2(w, chips_height(t.pro)), Sense::hover());
-    let left = (rect.left() + (w - group) / 2.0).round();
-    let fg = Rect::from_min_size(pos2(left, rect.top() + CHIP_ICON + 3.0), vec2(chip, chip));
-    let bg = fg.translate(vec2(step, step));
-    let radius = t.radius_sm.min(3.0);
-    let p = ui.painter();
-    let frame = |r: Rect| {
-        // A light line inside a dark one, so any colour reads against the toolbar.
-        p.rect_stroke(r, radius, Stroke::new(1.0, t.text.gamma_multiply(0.9)), StrokeKind::Inside);
-        p.rect_stroke(r, radius, Stroke::new(1.0, t.field_border), StrokeKind::Outside);
-    };
-    p.rect_filled(bg, radius, c32(app.session.tools.background));
-    frame(bg);
-    // The foreground chip sits on the background one, a toolbar-coloured gap between them.
-    p.rect_filled(fg.expand(2.0), radius + 2.0, t.chrome);
-    p.rect_filled(fg, radius, c32(app.session.tools.foreground));
-    frame(fg);
+    // Photoshop's layout on a 40 x 40 grid, centred across the toolbar (scaled down when it is
+    // narrower): foreground over background, the swap arrow above the background's right edge,
+    // the default colours under the foreground, tucked against the background.
+    const GRID: f32 = CHIPS_GRID;
+    let s = (ui.available_width() / GRID).clamp(0.5, 1.0);
+    let (row, _) = ui.allocate_exact_size(vec2(ui.available_width().max(GRID * s), GRID * s), Sense::hover());
+    let o = Rect::from_center_size(row.center() + vec2(dx, 0.0), Vec2::splat(GRID * s)).min;
+    let at = |x: f32, y: f32| o + vec2(x, y) * s;
+    let fg = Rect::from_min_size(at(1.5, 1.0), Vec2::splat(22.0 * s));
+    let bg = Rect::from_min_size(at(16.0, 15.0), Vec2::splat(23.0 * s));
+    let swap = Rect::from_min_max(at(27.0, 0.0), at(GRID, 13.5));
+    let default = Rect::from_min_max(at(0.0, 26.0), at(14.0, GRID));
+    let swap_resp = ui.interact(swap, ui.id().with("swapchip"), Sense::click());
+    let default_resp = ui.interact(default, ui.id().with("defaultchip"), Sense::click());
+    let p = ui.painter().with_clip_rect(ui.clip_rect().expand2(vec2(dx.abs(), 0.0)));
+    let p = &p;
+    p.rect_filled(bg, 0.0, c32(app.session.tools.background));
+    p.rect_stroke(bg, 0.0, Stroke::new(1.0, t.field_border), StrokeKind::Outside);
+    p.rect_filled(fg, 0.0, c32(app.session.tools.foreground));
+    p.rect_stroke(fg, 0.0, Stroke::new(1.5, t.chrome), StrokeKind::Outside);
+    p.rect_stroke(fg, 0.0, Stroke::new(1.0, t.field_border), StrokeKind::Inside);
+    // Swap: a quarter arc from a left-pointing head to a down-pointing head, its right end over
+    // the background chip's right edge.
+    let ink = if swap_resp.hovered() { t.text } else { t.icon };
+    let (c, r) = (at(31.5, 8.5), 6.0 * s);
+    let arc: Vec<Pos2> = (0..=12).map(|i| c + r * Vec2::angled(-std::f32::consts::FRAC_PI_2 * (1.0 - i as f32 / 12.0))).collect();
+    p.add(egui::Shape::line(arc, Stroke::new(1.7 * s, ink)));
+    p.add(egui::Shape::convex_polygon(vec![at(28.0, 2.5), at(31.8, -0.4), at(31.8, 5.4)], ink, Stroke::NONE));
+    p.add(egui::Shape::convex_polygon(vec![at(37.5, 12.2), at(34.6, 8.3), at(40.4, 8.3)], ink, Stroke::NONE));
+    // Default colours: a small black square over a white one.
+    let edge = if default_resp.hovered() { t.text } else { t.icon };
+    let white = Rect::from_min_size(at(4.6, 31.6), Vec2::splat(7.6 * s));
+    let black = Rect::from_min_size(at(0.0, 27.2), Vec2::splat(7.6 * s));
+    p.rect_filled(white, 0.0, Color32::WHITE);
+    p.rect_stroke(white, 0.0, Stroke::new(1.0, edge), StrokeKind::Inside);
+    p.rect_filled(black, 0.0, Color32::BLACK);
+    p.rect_stroke(black, 0.0, Stroke::new(1.0, edge), StrokeKind::Inside);
     // Photoshop: clicking a chip opens the Color Picker for that colour.
     let bg_resp = ui.interact(bg, ui.id().with("bgchip"), Sense::click());
     let fg_resp = ui.interact(fg, ui.id().with("fgchip"), Sense::click());
@@ -348,48 +384,12 @@ fn color_chips(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     } else if bg_resp.on_hover_text(tl!("Set background color")).clicked() {
         crate::color_picker_ui::open(app, "background");
     }
-    // Default Colors at the left, Switch Colors at the right, over the chips.
-    let icon = |x: f32| Rect::from_min_size(pos2(x, rect.top()), vec2(CHIP_ICON, CHIP_ICON));
-    let (dr, sr) = (icon(left), icon(left + group - CHIP_ICON));
-    let d = ui.interact(dr, ui.id().with("default-colors"), Sense::click());
-    let s = ui.interact(sr, ui.id().with("swap-colors"), Sense::click());
-    let p = ui.painter();
-    for (r, resp) in [(dr, &d), (sr, &s)] {
-        if resp.hovered() {
-            p.rect_filled(r.expand(2.0), radius, t.hover);
-        }
-    }
-    let ink = |resp: &egui::Response| if resp.hovered() { t.text } else { t.icon };
-    // Default Colors: a small black chip over a small white one.
-    let small = 7.0;
-    let (b, w) = (Rect::from_min_size(dr.min + vec2(1.0, 1.0), vec2(small, small)), Rect::from_min_size(dr.min + vec2(5.0, 5.0), vec2(small, small)));
-    p.rect_filled(w, 1.0, Color32::WHITE);
-    p.rect_stroke(w, 1.0, Stroke::new(1.0, ink(&d)), StrokeKind::Inside);
-    p.rect_filled(b.expand(1.0), 1.5, t.chrome);
-    p.rect_filled(b, 1.0, Color32::BLACK);
-    p.rect_stroke(b, 1.0, Stroke::new(1.0, ink(&d)), StrokeKind::Inside);
-    // Switch Colors: a quarter-circle arrow with a head at each end.
-    let stroke = Stroke::new(1.3, ink(&s));
-    let (c, rad) = (pos2(sr.left() + 2.0, sr.bottom() - 1.0), sr.width() - 4.0);
-    let arc: Vec<_> = (0..=8)
-        .map(|i| {
-            let a = std::f32::consts::FRAC_PI_2 * i as f32 / 8.0;
-            c + vec2(rad * a.sin(), -rad * a.cos())
-        })
-        .collect();
-    let (start, end) = (arc[0], arc[arc.len() - 1]);
-    p.add(egui::Shape::line(arc, stroke));
-    let head = 3.0;
-    p.line_segment([start, start + vec2(head, -head)], stroke);
-    p.line_segment([start, start + vec2(head, head)], stroke);
-    p.line_segment([end, end + vec2(-head, -head)], stroke);
-    p.line_segment([end, end + vec2(head, -head)], stroke);
-    d.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tl!("Default colours (D)")));
-    s.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tl!("Swap colours (X)")));
-    if s.on_hover_text(tl!("Swap colours (X)")).clicked() {
+    swap_resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tl!("Swap colours (X)")));
+    if swap_resp.on_hover_text(tl!("Swap colours (X)")).clicked() {
         let _ = app.run("tools.swapColors", json!({}));
     }
-    if d.on_hover_text(tl!("Default colours (D)")).clicked() {
+    default_resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tl!("Default colours (D)")));
+    if default_resp.on_hover_text(tl!("Default colours (D)")).clicked() {
         let _ = app.run("tools.defaultColors", json!({}));
     }
 }
@@ -3467,6 +3467,20 @@ mod type_flyout_tests {
         assert!(ctx.data(|d| d.get_temp::<(egui::Id, Rect)>(egui::Id::new("tool-flyout"))).is_none());
     }
 
+    /// A slot keeps showing the tool last picked in it after another slot's tool is selected,
+    /// and ignores a remembered tool that isn't in it.
+    #[test]
+    fn a_slot_shows_its_last_tool() {
+        let index = TOOL_SECTIONS.iter().flat_map(|section| section.iter()).position(|slot| slot.contains(&Tool::PolygonLasso)).unwrap();
+        let lasso: Vec<Tool> = TOOL_SECTIONS.iter().flat_map(|section| section.iter()).nth(index).unwrap().to_vec();
+        let mut slots = std::collections::BTreeMap::new();
+        assert_eq!(slot_tool(&mut slots, Tool::Brush, &lasso, index), Tool::Lasso, "the first tool before any pick");
+        assert_eq!(slot_tool(&mut slots, Tool::PolygonLasso, &lasso, index), Tool::PolygonLasso);
+        assert_eq!(slot_tool(&mut slots, Tool::Brush, &lasso, index), Tool::PolygonLasso, "remembered");
+        slots.insert("Lasso".into(), "Brush".into());
+        assert_eq!(slot_tool(&mut slots, Tool::Brush, &lasso, index), Tool::Lasso, "a tool from another slot is ignored");
+    }
+
     #[test]
     fn red_eye_is_in_the_j_flyout() {
         let j = TOOL_SECTIONS.iter().flat_map(|section| section.iter()).find(|slot| slot.contains(&Tool::SpotHealing)).expect("J group");
@@ -3715,6 +3729,37 @@ mod toolbar_tests {
         click(&mut h, p);
         assert_eq!(h.state().ui.tool, Tool::Hand);
         assert!(h.state().session.active().is_none());
+    }
+
+    /// When one column doesn't fit, the toolbar starts as two columns and the chevron still
+    /// switches it to one (the tools then scroll) and back.
+    #[test]
+    fn header_chevron_collapses_when_one_column_does_not_fit() {
+        let app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+        let mut h = egui_kittest::Harness::builder().with_size(vec2(800.0, 400.0)).build_ui_state(
+            |ui, app: &mut PhotocraftApp| {
+                if ui.ctx().fonts(|f| f.families().contains(&egui::FontFamily::Name("medium".into()))) {
+                    toolbar(app, ui);
+                    let left = ui.available_rect_before_wrap().left();
+                    ui.data_mut(|d| d.insert_temp(egui::Id::new("toolbar-test-left"), left));
+                }
+            },
+            app,
+        );
+        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Pro);
+        h.run_steps(2);
+        let left = |h: &egui_kittest::Harness<'_, PhotocraftApp>| h.ctx.data(|d| d.get_temp::<f32>(egui::Id::new("toolbar-test-left"))).unwrap_or(0.0);
+        let double = left(&h);
+
+        h.get_by_label("Toolbar").click();
+        h.run_steps(2);
+        assert!(h.state().ui.panels.toolbar_single);
+        assert!(left(&h) < double - 20.0, "the toolbar did not narrow: {double} -> {}", left(&h));
+
+        h.get_by_label("Toolbar").click();
+        h.run_steps(2);
+        assert!(!h.state().ui.panels.toolbar_single);
+        assert_eq!(left(&h), double);
     }
 }
 

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="24" height="24" viewBox="0 0 24 24" stroke="currentColor">
+  <title>pentagon.svg</title>
+  <g id="Layer_1" data-name="Layer 1">
+    <g id="Layer_2" data-name="Layer 2" data-vc-layer="sublayer">
+      <path d="M8.649 22.019 L21.959 13.514 L21.959 2.453 L15.007 8.42 L2.041 3.549 L9.459 14.214 L7.919 17.157 L4.783 18.72" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M8.329 17.157 C8.329 15.618 9.577 14.37 11.116 14.37 C12.656 14.37 13.904 15.618 13.904 17.157 C13.904 18.697 12.656 19.944 11.116 19.944 C9.577 19.944 8.329 18.697 8.329 17.157 Z" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>

@@ -351,6 +351,28 @@ pub struct FileHandling {
     pub recent_file_count: u32,
     /// Most recently opened files, newest first (File › Open Recent).
     pub recent_files: Vec<String>,
+    /// Sizes File › New created, newest first (the New Document dialog's Recent tab).
+    pub recent_new_documents: Vec<RecentDocumentSize>,
+}
+
+/// A document size File › New created, listed under the New Document dialog's Recent tab.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct RecentDocumentSize {
+    /// The preset it came from, or "Custom".
+    pub name: String,
+    pub width: u32,
+    pub height: u32,
+    /// Pixels per inch.
+    pub resolution: f32,
+    /// The unit Width and Height were shown in (`px`, `in`, `cm`, `mm`, `pt`, `pica`).
+    pub unit: String,
+}
+
+impl Default for RecentDocumentSize {
+    fn default() -> Self {
+        Self { name: "Custom".into(), width: 1920, height: 1080, resolution: 72.0, unit: "px".into() }
+    }
 }
 
 impl Default for FileHandling {
@@ -367,6 +389,7 @@ impl Default for FileHandling {
             maximize_psd_compatibility: Ask::Always,
             recent_file_count: 20,
             recent_files: Vec::new(),
+            recent_new_documents: Vec::new(),
         }
     }
 }

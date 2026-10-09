@@ -330,6 +330,9 @@ pub struct Panels {
     /// The toolbar's header chevron: two columns even when one fits (#1197).
     #[serde(default)]
     pub toolbar_double: bool,
+    /// The toolbar's header chevron chose one column even when it doesn't fit; the tools scroll.
+    #[serde(default)]
+    pub toolbar_single: bool,
     /// The right-hand panel dock. ⇧Tab hides and shows it, as in Photoshop (#1313).
     #[serde(default = "yes")]
     pub dock: bool,
@@ -352,6 +355,7 @@ impl Default for Panels {
             brush_settings: false,
             character: false,
             toolbar_double: false,
+            toolbar_single: false,
             dock: true,
             hidden_by_tab: None,
         }
@@ -797,6 +801,10 @@ pub struct ColorPanelState {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct UiState {
     pub tool: Tool,
+    /// The tool each toolbar slot last showed, by the slot's first tool (`Lasso` → `PolygonLasso`),
+    /// as tool names. Remembered across launches with the panel layout.
+    #[serde(default)]
+    pub tool_slots: std::collections::BTreeMap<String, String>,
     /// Recently opened file paths, most-recent first (File › Open Recent). Capped; de-duplicated.
     #[serde(default)]
     pub recent_files: Vec<String>,
@@ -964,6 +972,7 @@ impl Default for UiState {
     fn default() -> Self {
         Self {
             tool: Tool::Brush,
+            tool_slots: std::collections::BTreeMap::new(),
             recent_files: Vec::new(),
             text_edit: None,
             type_transform: None,

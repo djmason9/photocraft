@@ -2856,3 +2856,6 @@ fontWeight	Italic	기울임
 	Color to Alpha…	색상을 알파로…
 	Transparency Threshold	투명도 한계값
 	Opacity Threshold	불투명도 한계값
+	YOUR RECENT ITEMS ({n})	최근 항목 ({n})
+	Start a new {name} document: {size}	새 {name} 문서 만들기: {size}
+	Recent new documents	최근 새 문서
