@@ -3029,6 +3029,41 @@ mod tests {
         PhotocraftApp::new(photocraft_engine::Session::new(), services)
     }
 
+    /// A layout change made in the last frame before quitting is still saved: nothing else may
+    /// redraw (and so save) before the window closes.
+    #[test]
+    fn quitting_saves_a_change_from_the_last_frame() {
+        let (mut app, store) = app_with_store();
+        load(&mut app);
+        let ctx = egui::Context::default();
+        ctx.run_ui(egui::RawInput::default(), |ui| tick(&mut app, ui.ctx())).textures_delta.clear();
+        app.ui.panels.history = !app.ui.panels.history;
+        let history = app.ui.panels.history;
+        ctx.run_ui(egui::RawInput::default(), |ui| crate::dock::persist(&mut app, ui.ctx())).textures_delta.clear();
+        assert_ne!(stored(&store)["panelLayout"]["panels"]["history"], json!(history), "not written yet: saving happens in the next frame");
+        eframe::App::on_exit(&mut app);
+        assert_eq!(stored(&store)["panelLayout"]["panels"]["history"], json!(history));
+    }
+
+    /// The selected tool and the tool each toolbar slot shows come back after a restart (the
+    /// Polygonal Lasso in the lasso slot, Line in the shape slot).
+    #[test]
+    fn the_toolbar_tools_survive_a_restart() {
+        let (mut app, store) = app_with_store();
+        load(&mut app);
+        app.ui.tool = crate::state::Tool::PolygonLasso;
+        app.ui.tool_slots.insert("Lasso".into(), "PolygonLasso".into());
+        app.ui.tool_slots.insert("Rectangle".into(), "Line".into());
+        let ctx = egui::Context::default();
+        ctx.run_ui(egui::RawInput::default(), |ui| crate::dock::persist(&mut app, ui.ctx())).textures_delta.clear();
+        eframe::App::on_exit(&mut app);
+        let mut app = app_on(&store, Arc::default());
+        load(&mut app);
+        assert_eq!(app.ui.tool, crate::state::Tool::PolygonLasso);
+        assert_eq!(app.ui.tool_slots.get("Lasso").map(String::as_str), Some("PolygonLasso"));
+        assert_eq!(app.ui.tool_slots.get("Rectangle").map(String::as_str), Some("Line"));
+    }
+
     fn stored(store: &Arc<Mutex<Option<String>>>) -> Value {
         serde_json::from_str(store.lock().unwrap().as_deref().unwrap_or("null")).unwrap()
     }

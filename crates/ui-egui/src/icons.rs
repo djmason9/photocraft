@@ -103,7 +103,7 @@ pub fn tool_icon(t: Tool) -> &'static str {
         Tool::Note => "message-square",
         Tool::Count => "circle-dot",
         Tool::Lasso => "lasso",
-        Tool::PolygonLasso => "pentagon",
+        Tool::PolygonLasso => "poly-lasso",
         Tool::MagneticLasso => "lasso-magnetic",
         Tool::MagicWand => "wand-sparkles",
         Tool::Crop => "crop",

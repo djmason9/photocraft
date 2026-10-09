@@ -801,9 +801,14 @@ fn resize(layout: &mut DockLayout, heights: &[(Group, f32)], i: usize, dy: f32) 
     }
 }
 
-/// What `prefs.panelLayout` holds: the live layout and open panels.
+/// What `prefs.panelLayout` holds: the live layout and open panels, and the tool each toolbar
+/// slot shows.
 fn snapshot(app: &PhotocraftApp) -> Value {
-    json!({"workspace": app.ui.workspace, "panels": app.ui.panels, "dockTabs": app.ui.dock_tabs, "dock": app.ui.dock, "timelineOpen": app.ui.timeline.open, "docking": app.ui.docking, "dockingHidden": app.ui.docking_hidden, "dockingCollapsed": app.ui.docking_collapsed})
+    json!({
+        "workspace": app.ui.workspace, "panels": app.ui.panels, "dockTabs": app.ui.dock_tabs, "dock": app.ui.dock,
+        "timelineOpen": app.ui.timeline.open, "docking": app.ui.docking, "dockingHidden": app.ui.docking_hidden,
+        "dockingCollapsed": app.ui.docking_collapsed, "toolSlots": app.ui.tool_slots,
+    })
 }
 
 /// Remember the layout in the preferences once the user lets go of the mouse (Workspace ›
@@ -815,6 +820,9 @@ pub fn persist(app: &mut PhotocraftApp, ctx: &egui::Context) {
     let now = snapshot(app);
     if app.session.prefs().panel_layout != now {
         app.session.prefs.edit(|p| p.panel_layout = now);
+        // The preferences are written by the next frame's tick: ask for it, or an idle window
+        // keeps the change only in memory.
+        ctx.request_repaint();
     }
 }
 
@@ -831,6 +839,17 @@ pub fn restore(app: &mut PhotocraftApp) {
     app.ui.panels.brush_settings = false;
     if let Some(ws) = saved.get("workspace").and_then(Value::as_str) {
         app.ui.workspace = ws.to_string();
+    }
+    // The tool each toolbar slot showed (the selected tool itself is `tool_memory`'s). Unknown
+    // names (a tool renamed or removed since) are skipped.
+    if let Some(slots) = saved.get("toolSlots").and_then(Value::as_object) {
+        app.ui.tool_slots = slots
+            .iter()
+            .filter_map(|(k, v)| {
+                let tool = v.as_str().and_then(crate::state::Tool::from_name)?;
+                crate::state::Tool::from_name(k).map(|_| (k.clone(), format!("{tool:?}")))
+            })
+            .collect();
     }
 }
 

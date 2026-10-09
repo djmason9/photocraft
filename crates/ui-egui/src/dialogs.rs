@@ -223,7 +223,7 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
                 ui.set_min_width(w.min(460.0));
             }
             if d.kind == DialogKind::NewDocument {
-                ui.set_min_width(800.0);
+                ui.set_min_width(crate::new_doc_ui::DIALOG_W);
             }
             // The About window: room for the contributor table, the same width on every tab.
             let about_tabs = d.kind == DialogKind::About && d.fields.get("systemInfo").and_then(Value::as_bool) != Some(true);
@@ -231,7 +231,7 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
                 ui.set_min_width(700.0);
             }
             ui.set_max_width(wide.unwrap_or(if d.kind == DialogKind::NewDocument {
-                800.0
+                crate::new_doc_ui::DIALOG_W
             } else if about_tabs {
                 700.0
             } else if d.kind == DialogKind::LayerStyle || d.fields.contains_key("__export") || crate::color_picker_ui::owns(&d.fields) {
@@ -598,6 +598,7 @@ pub fn confirm(app: &mut PhotocraftApp, id: u64) -> Result<Value, String> {
             if let Some(i) = app.session.active_index() {
                 app.ui.views[i].fit_pending = true;
             }
+            // The next New Document starts from these settings (#1810).
             if r.is_ok() {
                 crate::remember_new_document(app, &d.fields);
                 // File › New › Recent. Best effort: the document exists either way.

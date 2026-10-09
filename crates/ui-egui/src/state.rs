@@ -1067,6 +1067,10 @@ pub struct UiState {
     /// Exposed to automation, never restored from settings.
     #[serde(default, skip_deserializing)]
     pub spring: Option<crate::spring_tools::Spring>,
+    /// The tool each toolbar slot last showed, by the slot's first tool (`Lasso` → `PolygonLasso`),
+    /// as tool names. Remembered across launches with the panel layout.
+    #[serde(default)]
+    pub tool_slots: std::collections::BTreeMap<String, String>,
     /// Recently opened file paths, most-recent first (File › Open Recent). Capped; de-duplicated.
     #[serde(default)]
     pub recent_files: Vec<String>,
@@ -1305,6 +1309,7 @@ impl Default for UiState {
             tool: Tool::Brush,
             group_tools: Vec::new(),
             spring: None,
+            tool_slots: std::collections::BTreeMap::new(),
             recent_files: Vec::new(),
             text_edit: None,
             text_edit_return_tool: None,
