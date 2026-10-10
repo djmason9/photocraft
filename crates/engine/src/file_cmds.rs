@@ -116,8 +116,8 @@ pub(crate) fn list_images(dir: &str) -> Result<Vec<String>> {
 
 /// Extensions the batch commands pick up from a folder.
 const OPENABLE: &[&str] = &[
-    "psd", "psb", "pcraft", "png", "jpg", "jpeg", "tif", "tiff", "webp", "gif", "bmp", "tga", "exr", "hdr", "qoi", "ico", "pnm", "ppm", "pgm", "heic", "heif",
-    "hif", "dng", "cr2", "nef", "nrw", "arw", "pef", "svg", "svgz", "af", "afdesign", "afphoto", "afpub",
+    "pdn", "ora", "psd", "psb", "pcraft", "png", "jpg", "jpeg", "tif", "tiff", "webp", "gif", "bmp", "tga", "exr", "hdr", "qoi", "ico", "pnm", "ppm", "pgm",
+    "heic", "heif", "hif", "dng", "cr2", "nef", "nrw", "arw", "pef", "svg", "svgz", "af", "afdesign", "afphoto", "afpub",
 ];
 
 /// Whether saving `doc` as a TIFF writes Photoshop layer data (anything beyond a lone
@@ -131,6 +131,19 @@ pub(crate) fn file_name(path: &str) -> String {
     path.rsplit(['/', '\\']).next().unwrap_or(path).to_string()
 }
 
+impl crate::DocState {
+    /// Complete a successful document save. File identity is not a history step; callers must
+    /// finish the write first and must not call this for a copy or export.
+    pub fn saved_to(&mut self, path: String) {
+        let name = file_name(&path);
+        if self.doc.name != name {
+            Arc::make_mut(&mut self.doc).name = name;
+        }
+        self.path = Some(path);
+        self.saved_revision = self.revision;
+    }
+}
+
 /// The lower-case extension of the file name in `path` (none for `.hidden` or `name`).
 pub fn extension(path: &str) -> Option<String> {
     file_name(path).rsplit_once('.').filter(|(base, ext)| !base.is_empty() && !ext.is_empty()).map(|(_, ext)| ext.to_ascii_lowercase())
@@ -139,7 +152,14 @@ pub fn extension(path: &str) -> Option<String> {
 /// Whether a save without a new path may write back to `path`: only layered files (PSD, PSB,
 /// .pcraft). A flat file goes through Save As instead, so it is never flattened over the original.
 pub fn saves_in_place(path: &str) -> bool {
-    extension(path).is_some_and(|ext| matches!(ext.as_str(), "psd" | "psb" | "pcraft"))
+    extension(path).is_some_and(|ext| layered_extension(&ext))
+}
+
+/// Whether the lower-case extension `ext` names a layered document format (PSD, PSB, OpenRaster,
+/// .pcraft). A save to one becomes the document's file; any other format is a copy for automation
+/// saves, desktop and headless alike (#1547, #2579).
+pub fn layered_extension(ext: &str) -> bool {
+    matches!(ext, "psd" | "psb" | "pcraft" | "ora")
 }
 
 /// Whether `path` names a document template (.psdt). A template opens as a new untitled document
@@ -185,6 +205,7 @@ pub(crate) fn sanitize(name: &str) -> String {
 }
 
 pub(crate) fn import(name: &str, bytes: &[u8]) -> Result<Document> {
+    crate::allocation::checkpoint("importing document")?;
     let r = photocraft_io::import(name, bytes).map_err(|e| EngineError::Other(format!("{name}: {e}")))?;
     // Auxiliary imports return only a document and cannot surface the preview's fidelity warning.
     // Open has its own warning-preserving path; never silently place or process a thumbnail.
@@ -225,6 +246,7 @@ impl From<Option<f64>> for SaveOpts {
 
 /// Encodes `doc` for `path`'s extension.
 pub(crate) fn encode(doc: &Document, path: &str, save: impl Into<SaveOpts>) -> Result<(Vec<u8>, Vec<String>)> {
+    crate::allocation::checkpoint("saving document")?;
     let save = save.into();
     let mut opts = photocraft_io::ExportOptions { tiff_layers: save.tiff_layers, ..Default::default() };
     if let Some(q) = save.quality {
@@ -339,6 +361,7 @@ fn save_a_copy(s: &mut Session, p: &Value) -> Result<Value> {
 
 /// Open a file's bytes, decoding them as the format `as_ext` (Open As) when given.
 pub fn open_bytes_as(s: &mut Session, name: &str, bytes: &[u8], as_ext: Option<&str>, path: Option<String>) -> Result<Value> {
+    crate::allocation::checkpoint("importing document")?;
     let decode_name = match as_ext {
         Some(ext) => format!("{}.{}", stem(name), ext.trim_start_matches('.')),
         None => name.to_string(),
@@ -384,7 +407,14 @@ pub fn place_bytes(s: &mut Session, name: &str, bytes: Vec<u8>, linked: Option<S
     let (cw, ch) = (d.doc.size.width as f64, d.doc.size.height as f64);
     let fmt = d.doc.pixel_format();
     let vector = photocraft_io::svg::is_svg(&bytes);
-    let src = import(name, &bytes)?;
+    let max_svg_group_depth = s.prefs().file_handling.rasterize_svg_groups_deeper_than as usize;
+    let imported = photocraft_io::import_with_svg_group_depth(name, &bytes, max_svg_group_depth).map_err(|e| EngineError::Other(format!("{name}: {e}")))?;
+    if imported.preview_only {
+        return Err(EngineError::Other(format!(
+            "{name}: only this Affinity file's embedded preview could be read; open it with File › Open to see the warning, or export PSD or PNG from Affinity before using it here"
+        )));
+    }
+    let src = imported.document;
     let (w, h) = (src.size.width as f64, src.size.height as f64);
     let scale = match f64_param(p, "scale") {
         Some(k) => (k / 100.0).max(1e-4),
@@ -526,23 +556,20 @@ pub fn read_file_info(xmp: Option<&str>) -> Value {
     Value::Object(m)
 }
 
-/// Rewrites the File Info fields of an XMP packet (creating one when there is none), keeping
-/// every other property. Edited properties move into their own `rdf:Description` (several
-/// descriptions per packet are valid XMP).
+/// Rewrites only changed File Info fields of an XMP packet (creating one when there is none),
+/// keeping the other properties verbatim. Edited properties move into their own
+/// `rdf:Description` (several descriptions per packet are valid XMP).
 pub fn write_file_info(xmp: Option<&str>, info: &Value) -> String {
-    let mut cur = read_file_info(xmp);
-    if let (Some(c), Some(n)) = (cur.as_object_mut(), info.as_object()) {
-        for (k, v) in n {
-            if c.contains_key(k) {
-                c.insert(k.clone(), v.clone());
-            }
-        }
-    }
+    let cur = read_file_info(xmp);
+    // The dialog submits all fields, including unchanged language alternatives.
+    let changed = |key: &str| info.get(key).is_some_and(|v| cur.get(key) != Some(v));
     let mut x = xmp.filter(|s| s.contains("</rdf:RDF>")).map(str::to_string).unwrap_or_else(|| {
         "<?xpacket begin=\"\u{feff}\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n<x:xmpmeta xmlns:x=\"adobe:ns:meta/\">\n <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n </rdf:RDF>\n</x:xmpmeta>\n<?xpacket end=\"w\"?>".to_string()
     });
-    let props: Vec<&str> = INFO_FIELDS.iter().map(|f| f.1).chain(["xmpRights:Marked", "xmpRights:WebStatement"]).collect();
-    for prop in &props {
+    for (key, prop, _) in INFO_FIELDS.into_iter().chain([("copyrightStatus", "xmpRights:Marked", ""), ("copyrightUrl", "xmpRights:WebStatement", "")]) {
+        if !changed(key) {
+            continue;
+        }
         while let Some((a, b, _)) = find_element(&x, prop) {
             x.replace_range(a..b, "");
         }
@@ -550,7 +577,7 @@ pub fn write_file_info(xmp: Option<&str>, info: &Value) -> String {
             x.replace_range(a..b, "");
         }
     }
-    let get = |k: &str| cur.get(k).cloned().unwrap_or(Value::Null);
+    let get = |k: &str| info.get(k).filter(|_| changed(k)).cloned().unwrap_or(Value::Null);
     let mut body = String::new();
     for (key, prop, kind) in INFO_FIELDS {
         let vals: Vec<String> = match get(key) {
