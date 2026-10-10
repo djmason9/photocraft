@@ -1,20 +1,14 @@
-<svg
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72" />
-  <path d="m14 7 3 3" />
-  <path d="M5 6v4" />
-  <path d="M19 14v4" />
-  <path d="M10 2v2" />
-  <path d="M7 8H3" />
-  <path d="M21 16h-4" />
-  <path d="M11 3H9" />
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="24" height="24" viewBox="0 0 24 24"  stroke="currentColor">
+  <title>wand-sparkles.svg</title>
+  <g id="Layer_1" data-name="Layer 1">
+    <path d="M21.64 3.64 L20.36 2.36 C20.133 2.13 19.823 2.001 19.5 2.001 C19.177 2.001 18.867 2.13 18.64 2.36 L2.36 18.64 C2.13 18.867 2.001 19.177 2.001 19.5 C2.001 19.823 2.13 20.133 2.36 20.36 L3.64 21.64 C3.866 21.872 4.176 22.003 4.5 22.003 C4.824 22.003 5.134 21.872 5.36 21.64 L21.64 5.36 C21.872 5.134 22.003 4.824 22.003 4.5 C22.003 4.176 21.872 3.866 21.64 3.64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M17 10 L14 7 L2.001 18.999 L4.453 22.002 Z"  fill="currentColor" stroke="currentColor" stroke-miterlimit="10"/>
+    <path d="M5 6 L5 10" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M19 14 L19 18" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M10 2 L10 4" fill="none"  stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M7 8 L3 8" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M21 16 L17 16" fill="none"  stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M11 3 L9 3" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
 </svg>

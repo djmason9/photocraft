@@ -1,14 +1,13 @@
-<svg
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <circle cx="15" cy="9" r="7" />
-  <circle cx="9" cy="15" r="7" />
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="24" height="24" viewBox="0 0 24 24">
+  <defs>
+    <linearGradient id="linear-gradient-1" x1="2.752" y1="12" x2="21.883" y2="12" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="currentColor" />
+      <stop offset="1" stop-color="rgba(255,255,255,0)"/>
+    </linearGradient>
+  </defs>
+  <title>blend.svg</title>
+  <g id="Layer_1" data-name="Layer 1">
+    <path d="M2.138 1.938 L22.115 1.938 L22.115 21.74 L2.138 21.74 Z" fill="url(#linear-gradient-1)" stroke="currentColor" stroke-miterlimit="10"/>
+  </g>
 </svg>
