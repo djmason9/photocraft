@@ -1,15 +1,8 @@
-<svg
-  xmlns="http://www.w3.org/2000/svg"
-  width="24"
-  height="24"
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <circle cx="11" cy="11" r="8" />
-  <path d="m21 21-4.3-4.3" />
-  <path d="M11 11a2 2 0 0 0 4 0 4 4 0 0 0-8 0 6 6 0 0 0 12 0" />
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="24" height="24" viewBox="0 0 24 24">
+  <title>lollipop.svg</title>
+  <g id="Layer_1" data-name="Layer 1">
+    <path d="M23.103 7.934 C23.103 11.883 19.902 15.085 15.953 15.085 C12.004 15.085 8.802 11.883 8.802 7.934 C8.802 3.985 12.004 0.784 15.953 0.784 C19.902 0.784 23.103 3.985 23.103 7.934 Z" fill="currentColor"/>
+    <path d="M17.11 7.481 L3.699 20.891" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-miterlimit="10"/>
+  </g>
 </svg>
