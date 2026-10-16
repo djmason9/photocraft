@@ -1568,9 +1568,11 @@ mod tests {
             h.get_by_label("Print").click();
             h.run_steps(2);
             // The default 1920 x 1080 is already landscape: Landscape swaps nothing, but is picked.
+            // Landscape is the second button after the Height field, under the "Orientation" label
+            // (30 px buttons, 8 px apart).
+            let height = field(&h, 1);
             let label = h.get_by_label("Orientation").rect();
-            let gap = h.ctx.global_style().spacing.item_spacing.x;
-            click_at(&mut h, egui::pos2(label.right() + gap + 24.0 + gap + 12.0, label.center().y));
+            click_at(&mut h, egui::pos2(label.left() + 15.0 + 30.0 + 8.0, height.center().y));
             assert_eq!((fields(&h)["width"].as_u64(), fields(&h)["height"].as_u64()), (Some(1920), Some(1080)));
             let _ = preset_title_at(&h, "11.7 x 8.3 in @ 300 ppi");
             let at = preset_title_at(&h, "A4");

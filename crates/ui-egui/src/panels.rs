@@ -4490,7 +4490,7 @@ mod color_tests {
                 preedit: None,
             });
             let mut h =
-                egui_kittest::Harness::builder().with_size(vec2(80.0, 120.0)).build_ui_state(|ui, app: &mut PhotocraftApp| color_chips(app, ui, false), app);
+                egui_kittest::Harness::builder().with_size(vec2(80.0, 120.0)).build_ui_state(|ui, app: &mut PhotocraftApp| color_chips(app, ui, false, 0.0), app);
             PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::Studio);
             h.run_steps(2);
             h.get_by_label("Swap colours (X)").click();
