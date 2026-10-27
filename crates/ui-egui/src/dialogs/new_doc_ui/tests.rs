@@ -773,7 +773,7 @@ mod dialog {
         assert!(h.query_by_label_contains("BLANK DOCUMENT PRESETS (3)").is_some());
         let heading = h.get_by_label_contains("BLANK DOCUMENT PRESETS").rect();
         // Pick the second card, then the first (Clipboard) again.
-        click_at(&mut h, heading.left_bottom() + egui::vec2(80.0 + 172.0, 60.0));
+        click_at(&mut h, heading.left_bottom() + egui::vec2(80.0 + super::super::CARD.x + super::super::CARD_GAP, 60.0));
         assert_eq!(fields(&h).get("__preset").and_then(|v| v.as_str()), Some("Default PhotoCraft Size"));
         click_at(&mut h, heading.left_bottom() + egui::vec2(80.0, 60.0));
         assert_eq!(fields(&h).get("__preset").and_then(|v| v.as_str()), Some(super::super::CLIPBOARD));
@@ -841,10 +841,11 @@ mod dialog {
         let mut h = harness();
         type_into(&mut h, 0, "512");
         type_into(&mut h, 1, "256");
-        // The Portrait icon button follows the "Orientation" label (icons have tooltips only).
+        // The Portrait icon button follows the Height field, under the "Orientation" label
+        // (icons have tooltips only).
+        let height = field(&h, 1);
         let label = h.get_by_label("Orientation").rect();
-        let gap = h.ctx.global_style().spacing.item_spacing.x;
-        click_at(&mut h, egui::pos2(label.right() + gap + 12.0, label.center().y));
+        click_at(&mut h, egui::pos2(label.left() + 15.0, height.center().y));
         enter(&mut h);
         assert_eq!(created(&h), (256, 512, 72.0));
     }
@@ -856,9 +857,11 @@ mod dialog {
         h.get_by_label("Print").click();
         h.run_steps(2);
         // The default 1920 x 1080 is already landscape: Landscape swaps nothing, but is picked.
+        // Landscape is the second button after the Height field, under the "Orientation" label
+        // (30 px buttons, 8 px apart).
+        let height = field(&h, 1);
         let label = h.get_by_label("Orientation").rect();
-        let gap = h.ctx.global_style().spacing.item_spacing.x;
-        click_at(&mut h, egui::pos2(label.right() + gap + 24.0 + gap + 12.0, label.center().y));
+        click_at(&mut h, egui::pos2(label.left() + 15.0 + 30.0 + 8.0, height.center().y));
         assert_eq!((fields(&h)["width"].as_u64(), fields(&h)["height"].as_u64()), (Some(1920), Some(1080)));
         let _ = preset_title_at(&h, "11.7 x 8.3 in @ 300 ppi");
         let at = preset_title_at(&h, "A4");
